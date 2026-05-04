@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0c10;
+  color: #e2e8f0;
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #131520; }
+::-webkit-scrollbar-thumb { background: #00B4D8; border-radius: 3px; }
+
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-400 hover:to-primary-500 
+    text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 
+    shadow-glow-cyan hover:shadow-lg transform hover:-translate-y-0.5;
+  }
+  .btn-secondary {
+    @apply border border-primary-500/50 hover:bg-primary-500/10 text-primary-400 
+    font-semibold py-3 px-8 rounded-xl transition-all duration-300;
+  }
+  .input-field {
+    @apply w-full bg-dark-200/50 border border-white/10 rounded-xl px-4 py-3 
+    text-white placeholder-gray-500 focus:border-primary-500 focus:ring-1 
+    focus:ring-primary-500/50 outline-none transition-all duration-300;
+  }
+  .nav-link {
+    @apply text-gray-400 hover:text-primary-400 transition-colors duration-300 font-medium;
+  }
+  .badge-seizure {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-sm font-semibold;
+  }
+  .badge-normal {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1 rounded-full text-sm font-semibold;
+  }
+}
