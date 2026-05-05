@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: neuroscan-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      # ── Set these manually in Render dashboard (sync: false = secret) ──────
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: neuroscan
+      - key: SECRET_KEY
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_URL_PREFIX
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: NeuroScan AI
+      - key: FALLBACK_CONFIDENCE_THRESHOLD
+        value: "0.55"
+      - key: SEIZURE_THRESHOLD
+        value: "0.25"
+      - key: ENSEMBLE_WEIGHT_EFF
+        value: "0.35"
+      - key: ENSEMBLE_WEIGHT_GEMINI
+        value: "0.65"
+      - key: ENSEMBLE_THRESHOLD
+        value: "0.35"

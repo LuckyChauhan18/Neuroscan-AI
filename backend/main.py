@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,10 +23,18 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Order matters: CORSMiddleware first so preflight is handled before logging.
+# CORS — set ALLOWED_ORIGINS env var to a comma-separated list of frontend URLs.
+# Example: "https://neuroscan-ai.vercel.app,https://neuroscan.up.railway.app"
+# Falls back to wildcard in dev when env var is not set.
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = (
+    [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    if _raw_origins else ["*"]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,6 +88,16 @@ app.include_router(feedback_router)
 @app.on_event("startup")
 def startup() -> None:
     logger.info("NeuroScan AI starting up (v2.0.0)")
+
+    # Restrict TensorFlow to CPU-only on free cloud hosts (no GPU available)
+    # and prevent it from pre-allocating all available RAM.
+    try:
+        import tensorflow as tf
+        tf.config.set_visible_devices([], "GPU")
+        logger.info("TensorFlow configured for CPU-only inference")
+    except Exception as tf_err:
+        logger.warning(f"TensorFlow config skipped: {tf_err}")
+
     init_indexes()
     logger.info("MongoDB indexes initialized")
 
