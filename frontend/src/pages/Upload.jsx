@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUploadCloud, FiFile, FiX, FiCpu, FiCheckCircle, FiAlertTriangle, FiEye, FiMaximize2, FiZap, FiDatabase, FiBarChart2, FiFileText, FiList, FiImage } from 'react-icons/fi';
+import { FiUploadCloud, FiFile, FiX, FiCpu, FiCheckCircle, FiAlertTriangle, FiEye, FiMaximize2, FiZap, FiDatabase, FiBarChart2, FiFileText, FiList, FiImage, FiCamera } from 'react-icons/fi';
 import { uploadEEG } from '../api';
 
 export default function Upload() {
@@ -14,6 +14,7 @@ export default function Upload() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const cameraInputRef = useRef(null);
 
   useEffect(() => {
     if (!file) { setPreviewUrl(null); return; }
@@ -30,6 +31,15 @@ export default function Upload() {
       setError('');
     }
   }, []);
+
+  const handleCameraCapture = (e) => {
+    const captured = e.target.files?.[0];
+    if (!captured) return;
+    setFile(captured);
+    setError('');
+    // Reset so the same file can be re-captured if needed
+    e.target.value = '';
+  };
 
   const acceptConfig = uploadMode === 'csv' 
     ? { 'text/csv': ['.csv'], 'text/plain': ['.txt'] }
@@ -121,48 +131,78 @@ export default function Upload() {
             </button>
           </div>
 
+          {/* Hidden camera input — triggers native camera on mobile */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleCameraCapture}
+          />
+
           {uploadMode && (
-            <div
-              {...getRootProps()}
-              className={`glass-card p-6 text-center cursor-pointer transition-all duration-300
-                ${isDragActive ? 'border-primary-500 bg-primary-500/5 shadow-glow-cyan' : 'hover:border-primary-500/30'}
-                ${file ? 'border-green-500/30' : ''}`}
-            >
-              <input {...getInputProps()} />
-              <AnimatePresence mode="wait">
-                {file ? (
-                  <motion.div key="file" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                    className="flex flex-col items-center w-full">
-                    {previewUrl ? (
-                      <div className="relative w-full mb-4">
-                        <img src={previewUrl} alt="Waveform preview" className="w-full h-64 rounded-xl object-cover border border-white/10" />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent rounded-b-xl px-4 py-3">
-                          <p className="text-white font-semibold text-sm">{file.name}</p>
-                          <p className="text-gray-300 text-xs">{fileSize}</p>
+            <div className="space-y-3">
+              <div
+                {...getRootProps()}
+                className={`glass-card p-6 text-center cursor-pointer transition-all duration-300
+                  ${isDragActive ? 'border-primary-500 bg-primary-500/5 shadow-glow-cyan' : 'hover:border-primary-500/30'}
+                  ${file ? 'border-green-500/30' : ''}`}
+              >
+                <input {...getInputProps()} />
+                <AnimatePresence mode="wait">
+                  {file ? (
+                    <motion.div key="file" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                      className="flex flex-col items-center w-full">
+                      {previewUrl ? (
+                        <div className="relative w-full mb-4">
+                          <img src={previewUrl} alt="Waveform preview" className="w-full h-64 rounded-xl object-cover border border-white/10" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent rounded-b-xl px-4 py-3">
+                            <p className="text-white font-semibold text-sm">{file.name}</p>
+                            <p className="text-gray-300 text-xs">{fileSize}</p>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }} className="absolute top-3 right-3 bg-black/50 hover:bg-black/80 text-white rounded-lg px-3 py-1.5 text-xs inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10 transition-colors">
+                            <FiMaximize2 size={12} /> Preview
+                          </button>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }} className="absolute top-3 right-3 bg-black/50 hover:bg-black/80 text-white rounded-lg px-3 py-1.5 text-xs inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10 transition-colors">
-                          <FiMaximize2 size={12} /> Preview
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-5xl mb-4">{fileIcon}</div>
-                        <p className="text-white font-semibold text-lg">{file.name}</p>
-                        <p className="text-gray-400 text-sm mt-1">{fileSize}</p>
-                      </>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); setFile(null); setError(''); }} className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm mt-2">
-                      <FiX /> Remove file
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.div key="dropzone" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <FiUploadCloud className="text-5xl text-primary-400 mx-auto mb-4" />
-                    <p className="text-white text-lg font-medium mb-2">{isDragActive ? 'Drop file here' : 'Drag & drop file'}</p>
-                    <p className="text-gray-500 text-sm">or click to browse {uploadMode === 'csv' ? '(.csv, .txt)' : '(.png, .jpg, .svg, .bmp, .tiff)'}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                      ) : (
+                        <>
+                          <div className="text-5xl mb-4">{fileIcon}</div>
+                          <p className="text-white font-semibold text-lg">{file.name}</p>
+                          <p className="text-gray-400 text-sm mt-1">{fileSize}</p>
+                        </>
+                      )}
+                      <button onClick={(e) => { e.stopPropagation(); setFile(null); setError(''); }} className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm mt-2">
+                        <FiX /> Remove file
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="dropzone" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <FiUploadCloud className="text-5xl text-primary-400 mx-auto mb-4" />
+                      <p className="text-white text-lg font-medium mb-2">{isDragActive ? 'Drop file here' : 'Drag & drop file'}</p>
+                      <p className="text-gray-500 text-sm">or click to browse {uploadMode === 'csv' ? '(.csv, .txt)' : '(.png, .jpg, .svg, .bmp, .tiff)'}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Camera button — only shown for image mode, hidden once a file is chosen */}
+              {uploadMode === 'image' && !file && (
+                <motion.button
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-full glass-card py-4 flex items-center justify-center gap-3 border border-purple-500/25 hover:border-purple-500/50 hover:bg-purple-500/5 transition-all group"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/15 flex items-center justify-center group-hover:bg-purple-500/25 transition-colors">
+                    <FiCamera className="text-purple-400 text-lg" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-white text-sm font-semibold">Take a Photo</p>
+                    <p className="text-gray-500 text-xs">Opens camera on mobile · file picker on desktop</p>
+                  </div>
+                </motion.button>
+              )}
             </div>
           )}
 

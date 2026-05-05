@@ -60,10 +60,10 @@ const NAV_COLS = [
     title: 'Medical Info',
     icon: FiInfo,
     links: [
-      { label: 'What is an EEG?',     desc: 'Electroencephalogram basics' },
-      { label: 'Epilepsy Overview',   desc: 'Seizure types & signs' },
-      { label: 'AI in Neurology',     desc: 'Role of AI in diagnostics' },
-      { label: 'When to See a Doctor', desc: 'Clinical escalation guide' },
+      { label: 'What is an EEG?',      desc: 'Electroencephalogram basics',     href: 'https://medlineplus.gov/eegs.html' },
+      { label: 'Epilepsy Overview',    desc: 'Seizure types & signs',           href: 'https://www.epilepsy.com/' },
+      { label: 'AI in Neurology',      desc: 'Role of AI in diagnostics',       href: 'https://medlineplus.gov/epilepsy.html' },
+      { label: 'Consult a Doctor',     desc: 'Book a neurologist online',       href: 'https://www.practo.com/' },
     ],
   },
 ];
@@ -382,7 +382,7 @@ export default function Footer() {
                   {col.links.map((link, li) => (
                     <li key={li}>
                       {link.to ? (
-                        // Actual route links
+                        // Internal route links
                         <Link
                           to={link.to}
                           className="flex items-center gap-2 text-gray-500 hover:text-primary-400 transition-colors text-sm group"
@@ -395,8 +395,23 @@ export default function Footer() {
                           )}
                           {link.label}
                         </Link>
+                      ) : link.href ? (
+                        // External resource links
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block space-y-0.5 group"
+                        >
+                          <p className="text-gray-400 text-sm font-medium group-hover:text-primary-400 transition-colors">
+                            {link.label}
+                          </p>
+                          {link.desc && (
+                            <p className="text-gray-600 text-xs leading-snug">{link.desc}</p>
+                          )}
+                        </a>
                       ) : (
-                        // Info items (no route)
+                        // Static info items
                         <div className="space-y-0.5">
                           <p className="text-gray-400 text-sm font-medium">{link.label}</p>
                           {link.desc && (

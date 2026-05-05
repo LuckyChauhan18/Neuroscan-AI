@@ -321,6 +321,76 @@ def _build_html(
           </td>
         </tr>
 
+        <!-- ── HELPFUL RESOURCES ── -->
+        <tr>
+          <td style="padding:28px 40px 0;">
+            <h2 style="font-size:16px;color:#111827;margin:0 0 12px;font-weight:700;">
+              Helpful Resources
+            </h2>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="33%" style="padding-right:8px;vertical-align:top;">
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="background:#fff0f4;border:1px solid #fecdd3;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px;">
+                        <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#be123c;">
+                          ❤️ Epilepsy Foundation
+                        </p>
+                        <p style="margin:0 0 8px;font-size:12px;color:#6b7280;line-height:1.4;">
+                          Seizure types, EEG basics, first-aid guidance.
+                        </p>
+                        <a href="https://www.epilepsy.com/" target="_blank"
+                           style="font-size:12px;color:#be123c;font-weight:600;text-decoration:none;">
+                          Learn about seizures →
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33%" style="padding:0 4px;vertical-align:top;">
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px;">
+                        <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#1d4ed8;">
+                          📖 MedlinePlus
+                        </p>
+                        <p style="margin:0 0 8px;font-size:12px;color:#6b7280;line-height:1.4;">
+                          Government-backed medical reference. EEG &amp; epilepsy info.
+                        </p>
+                        <a href="https://medlineplus.gov/epilepsy.html" target="_blank"
+                           style="font-size:12px;color:#1d4ed8;font-weight:600;text-decoration:none;">
+                          Read medical details →
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33%" style="padding-left:8px;vertical-align:top;">
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 16px;">
+                        <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#15803d;">
+                          🩺 Consult a Doctor
+                        </p>
+                        <p style="margin:0 0 8px;font-size:12px;color:#6b7280;line-height:1.4;">
+                          Book a verified neurologist online via Practo.
+                        </p>
+                        <a href="https://www.practo.com/" target="_blank"
+                           style="font-size:12px;color:#15803d;font-weight:600;text-decoration:none;">
+                          Book a neurologist →
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
         <!-- ── DISCLAIMER ── -->
         <tr>
           <td style="padding:28px 40px 0;">

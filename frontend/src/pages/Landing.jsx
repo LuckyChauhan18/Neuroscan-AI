@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiUpload, FiCpu, FiFileText, FiShield, FiActivity, FiZap } from 'react-icons/fi';
+import { FiUpload, FiCpu, FiFileText, FiShield, FiActivity, FiZap, FiExternalLink, FiHeart, FiBook, FiUser } from 'react-icons/fi';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -135,6 +135,110 @@ export default function Landing({ user }) {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Trusted Resources */}
+      <section className="py-24 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl font-heading font-bold text-white mb-4">Trusted Medical Resources</h2>
+            <p className="text-gray-400 text-lg max-w-xl mx-auto">
+              NeuroScan AI is a research tool — always verify findings with qualified medical professionals.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: FiHeart,
+                color: 'from-red-500/20 to-red-700/20',
+                iconColor: 'text-red-400',
+                borderHover: 'hover:border-red-500/30',
+                badge: 'Epilepsy & Seizures',
+                badgeColor: 'text-red-400 bg-red-400/10 border-red-400/20',
+                title: 'Epilepsy Foundation',
+                desc: 'Patient-friendly information on seizure types, EEG basics, treatment options, and first-aid guidance. Trusted globally by patients and caregivers.',
+                cta: 'Learn about seizures',
+                href: 'https://www.epilepsy.com/',
+              },
+              {
+                icon: FiBook,
+                color: 'from-blue-500/20 to-blue-700/20',
+                iconColor: 'text-blue-400',
+                borderHover: 'hover:border-blue-500/30',
+                badge: 'Medical Reference',
+                badgeColor: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                title: 'MedlinePlus',
+                desc: 'Government-backed medical encyclopedia covering EEG tests, seizure causes, medications, and clinical guidelines in clear, accurate language.',
+                cta: 'Read medical details',
+                href: 'https://medlineplus.gov/epilepsy.html',
+              },
+              {
+                icon: FiUser,
+                color: 'from-emerald-500/20 to-emerald-700/20',
+                iconColor: 'text-emerald-400',
+                borderHover: 'hover:border-emerald-500/30',
+                badge: 'Doctor Consultation',
+                badgeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+                title: 'Practo',
+                desc: 'Book a verified neurologist online for a professional consultation. Relevant for Indian users with Q&A, doctor profiles, and appointment booking.',
+                cta: 'Consult a doctor',
+                href: 'https://www.practo.com/',
+              },
+            ].map((res, i) => (
+              <motion.a
+                key={res.title}
+                href={res.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                whileHover={{ y: -6 }}
+                className={`glass-card p-7 flex flex-col gap-4 border border-white/10 ${res.borderHover} transition-all duration-300 group cursor-pointer`}
+              >
+                {/* Icon */}
+                <div className={`w-12 h-12 bg-gradient-to-br ${res.color} rounded-xl flex items-center justify-center`}>
+                  <res.icon className={`${res.iconColor} text-xl`} />
+                </div>
+
+                {/* Badge + title */}
+                <div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[11px] font-semibold mb-2 ${res.badgeColor}`}>
+                    {res.badge}
+                  </span>
+                  <h3 className="text-lg font-heading font-bold text-white">{res.title}</h3>
+                </div>
+
+                {/* Description */}
+                <p className="text-gray-400 text-sm leading-relaxed flex-1">{res.desc}</p>
+
+                {/* CTA row */}
+                <div className={`flex items-center gap-1.5 text-sm font-semibold ${res.iconColor} group-hover:gap-2.5 transition-all`}>
+                  {res.cta}
+                  <FiExternalLink size={13} />
+                </div>
+              </motion.a>
+            ))}
+          </div>
+
+          {/* Disclaimer note */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center text-gray-600 text-xs mt-8 max-w-2xl mx-auto leading-relaxed"
+          >
+            ⚠️ NeuroScan AI predictions are for research and educational purposes only and do not constitute medical advice.
+            Always consult a qualified neurologist before making any clinical decisions.
+          </motion.p>
         </div>
       </section>
 

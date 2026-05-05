@@ -8,7 +8,7 @@ import {
   FiDownload, FiStar, FiSend, FiActivity, FiAlertTriangle, FiCheckCircle,
   FiArrowLeft, FiCpu, FiAlertCircle, FiHeart, FiCalendar, FiList,
   FiZap, FiShield, FiBookOpen, FiSun, FiUser, FiMail, FiUsers, FiInfo,
-  FiClipboard,
+  FiClipboard, FiExternalLink, FiBook,
 } from 'react-icons/fi';
 import { getPredictionDetail, getReport, downloadReport, submitFeedback } from '../api';
 import SpectrogramCanvas from '../components/SpectrogramCanvas';
@@ -730,6 +730,83 @@ export default function Results({ onModeChange }) {
               </div>
             </motion.div>
           )}
+
+          {/* ── Resources & Next Steps ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="glass-card p-6 mt-6"
+          >
+            <h2 className="text-xl font-heading font-semibold text-white mb-1 flex items-center gap-2">
+              <FiBookOpen className="text-primary-400" /> Resources &amp; Next Steps
+            </h2>
+            <p className="text-gray-500 text-xs mb-5">
+              This AI result is not a medical diagnosis. Use these trusted resources and consult a doctor.
+            </p>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              {[
+                {
+                  icon: FiHeart,
+                  iconColor: 'text-red-400',
+                  bg: 'bg-red-400/10 border-red-400/20 hover:border-red-400/40',
+                  label: 'Epilepsy Foundation',
+                  sub: 'Learn about seizures',
+                  href: 'https://www.epilepsy.com/',
+                },
+                {
+                  icon: FiBook,
+                  iconColor: 'text-blue-400',
+                  bg: 'bg-blue-400/10 border-blue-400/20 hover:border-blue-400/40',
+                  label: 'MedlinePlus',
+                  sub: 'Read medical details',
+                  href: 'https://medlineplus.gov/epilepsy.html',
+                },
+                {
+                  icon: FiUser,
+                  iconColor: 'text-emerald-400',
+                  bg: 'bg-emerald-400/10 border-emerald-400/20 hover:border-emerald-400/40',
+                  label: 'Consult a Doctor',
+                  sub: 'Book a neurologist on Practo',
+                  href: 'https://www.practo.com/',
+                },
+              ].map((r) => (
+                <a
+                  key={r.label}
+                  href={r.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all group ${r.bg}`}
+                >
+                  <r.icon className={`${r.iconColor} text-lg flex-shrink-0`} />
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{r.label}</p>
+                    <p className="text-gray-500 text-xs truncate">{r.sub}</p>
+                  </div>
+                  <FiExternalLink size={12} className="text-gray-600 group-hover:text-gray-400 ml-auto flex-shrink-0 transition-colors" />
+                </a>
+              ))}
+            </div>
+
+            {isSeizure ? (
+              <div className="mt-4 flex items-start gap-2.5 bg-red-500/5 border border-red-500/20 rounded-xl px-4 py-3">
+                <FiAlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-red-300/80 text-xs leading-relaxed">
+                  <span className="font-bold text-red-400">Seizure detected.</span> If you or someone nearby is experiencing a seizure, call your local emergency services immediately.
+                  Do not leave the person alone. Consult a neurologist as soon as possible.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 flex items-start gap-2.5 bg-green-500/5 border border-green-500/20 rounded-xl px-4 py-3">
+                <FiCheckCircle size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
+                <p className="text-green-300/80 text-xs leading-relaxed">
+                  <span className="font-bold text-green-400">No seizure detected.</span> While this result looks clear, AI analysis is not a substitute for clinical evaluation.
+                  If you have concerns about your EEG, use the resources above or book a consultation with a neurologist.
+                </p>
+              </div>
+            )}
+          </motion.div>
 
           {/* ── Feedback ── */}
           <div className="glass-card p-6 mt-6">
