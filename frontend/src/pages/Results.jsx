@@ -280,7 +280,7 @@ export default function Results({ onModeChange }) {
           </Link>
 
           {/* ── Prediction Header ── */}
-          <div className={`glass-card p-8 mb-6 border ${isSeizure ? 'border-red-500/30' : 'border-green-500/30'}`}>
+          <div className={`glass-card p-5 sm:p-8 mb-6 border ${isSeizure ? 'border-red-500/30' : 'border-green-500/30'}`}>
             <div className="flex flex-col md:flex-row items-center gap-6">
               <motion.div
                 initial={{ scale: 0 }}
@@ -309,7 +309,7 @@ export default function Results({ onModeChange }) {
 
               {/* Confidence ring */}
               <div className="text-center flex-shrink-0">
-                <div className={`text-5xl font-heading font-bold ${isSeizure ? 'text-red-400' : 'text-green-400'}`}>
+                <div className={`text-4xl sm:text-5xl font-heading font-bold ${isSeizure ? 'text-red-400' : 'text-green-400'}`}>
                   {confidence}%
                 </div>
                 <p className="text-gray-500 text-xs mt-1 uppercase tracking-widest">AI Confidence</p>
@@ -323,7 +323,7 @@ export default function Results({ onModeChange }) {
 
           {/* ── EEG Chart + Signal Stats ── */}
           <div className="grid lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-2 glass-card p-6">
+            <div className="lg:col-span-2 glass-card p-4 sm:p-6">
 
               {/* Header + tabs */}
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -456,7 +456,7 @@ export default function Results({ onModeChange }) {
             </div>
 
             {/* Signal Stats */}
-            <div className="glass-card p-6">
+            <div className="glass-card p-4 sm:p-6">
               <h2 className="text-xl font-heading font-semibold text-white mb-4">Signal Statistics</h2>
               <div className="space-y-1">
                 {data.signal_stats && Object.entries(data.signal_stats).map(([key, val]) => (
@@ -475,12 +475,12 @@ export default function Results({ onModeChange }) {
               className="glass-card p-0 mt-6 overflow-hidden"
             >
               {/* Report header bar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 border-b border-white/5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 border-b border-white/5">
                 <div>
                   <h2 className="text-xl font-heading font-semibold text-white">Medical Report</h2>
                   <p className="text-gray-500 text-xs mt-0.5">AI-generated clinical analysis • Always consult a neurologist</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-start sm:items-end gap-2">
                   <div className="flex gap-2 flex-wrap">
                     {['pdf', 'docx', 'json'].map((fmt) => (
                       <button
@@ -524,7 +524,7 @@ export default function Results({ onModeChange }) {
                 ].filter(f => f.value);
 
                 return (
-                  <div className="mx-6 mt-6">
+                  <div className="mx-3 sm:mx-6 mt-4 sm:mt-6">
                     {/* Card */}
                     <div className="relative rounded-2xl overflow-hidden border border-white/10">
 
@@ -532,7 +532,7 @@ export default function Results({ onModeChange }) {
                       <div className="h-1.5 w-full bg-gradient-to-r from-primary-600 via-primary-400 to-cyan-400" />
 
                       {/* Body: info LEFT, avatar RIGHT */}
-                      <div className="bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-6 flex flex-row gap-6 items-center">
+                      <div className="bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center">
 
                         {/* Info section — left, 2-col grid */}
                         <div className="flex-1 min-w-0">
@@ -585,7 +585,7 @@ export default function Results({ onModeChange }) {
 
               {/* ── Executive Summary ── */}
               {(dr.executive_summary || dr.summary) && (
-                <div className={`mx-6 mt-6 rounded-xl px-5 py-4 border ${
+                <div className={`mx-3 sm:mx-6 mt-4 sm:mt-6 rounded-xl px-4 sm:px-5 py-4 border ${
                   isSeizure ? 'bg-red-500/5 border-red-500/15' : 'bg-green-500/5 border-green-500/15'
                 }`}>
                   <div className="flex items-start gap-3">
@@ -608,7 +608,7 @@ export default function Results({ onModeChange }) {
               )}
 
               {/* ── Report body grid ── */}
-              <div className="p-6 grid md:grid-cols-2 gap-8">
+              <div className="p-4 sm:p-6 grid md:grid-cols-2 gap-6 sm:gap-8">
 
                 {/* LEFT COLUMN */}
                 <div className="space-y-8">
@@ -712,7 +712,7 @@ export default function Results({ onModeChange }) {
               </div>
 
               {/* ── Confidence note ── */}
-              <div className="mx-6 mb-4 flex items-start gap-2">
+              <div className="mx-3 sm:mx-6 mb-4 flex items-start gap-2">
                 <FiInfo size={11} className="flex-shrink-0 mt-0.5 text-gray-600" />
                 <p className="text-gray-600 text-xs leading-relaxed">
                   AI confidence ({confidence}% — {confidenceLevel} certainty) reflects model certainty,
@@ -722,7 +722,7 @@ export default function Results({ onModeChange }) {
               </div>
 
               {/* Disclaimer */}
-              <div className="mx-6 mb-6 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
+              <div className="mx-3 sm:mx-6 mb-4 sm:mb-6 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
                 <p className="text-yellow-400/80 text-xs leading-relaxed flex items-start gap-2">
                   <FiAlertCircle className="flex-shrink-0 mt-0.5" size={13} />
                   {report.disclaimer}

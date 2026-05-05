@@ -61,7 +61,7 @@ export default function Landing({ user }) {
             </motion.div>
 
             {/* Stats */}
-            <motion.div variants={fadeUp} custom={4} className="flex justify-center gap-8 sm:gap-16 pt-8">
+            <motion.div variants={fadeUp} custom={4} className="flex flex-wrap justify-center gap-8 sm:gap-16 pt-8">
               {[
                 { val: '99%', label: 'Accuracy' },
                 { val: '11.5K', label: 'EEG Records' },
@@ -145,7 +145,7 @@ export default function Landing({ user }) {
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="glass-card p-12 relative overflow-hidden"
+            className="glass-card p-6 sm:p-12 relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl" />
             <h2 className="text-3xl sm:text-4xl font-heading font-bold text-white mb-4 relative">

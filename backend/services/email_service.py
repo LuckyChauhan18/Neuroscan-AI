@@ -24,6 +24,7 @@ import io
 import os
 import smtplib
 import ssl
+from email.mime.application import MIMEApplication
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -122,6 +123,20 @@ def _fetch_r2_image(key: str) -> Optional[bytes]:
     return None
 
 
+def _resize_image(img_bytes: bytes, max_width: int = 800) -> bytes:
+    """Resize image to max_width if wider; return original bytes on failure."""
+    try:
+        pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        if pil.width > max_width:
+            ratio = max_width / pil.width
+            pil = pil.resize((max_width, int(pil.height * ratio)), Image.LANCZOS)
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+    except Exception:
+        return img_bytes
+
+
 # ── HTML template ─────────────────────────────────────────────────────────────
 
 _PRED_BG    = {"Seizure": "#fff0f0", "Non-Seizure": "#f0fff4"}
@@ -144,7 +159,7 @@ def _build_html(
     risk_rationale: str,
     summary: str,
     recommendations: list,
-    has_attachment: bool,
+    attachment_names: list,
 ) -> str:
     pred_bg     = _PRED_BG.get(prediction, "#f9fafb")
     pred_border = _PRED_BORDER.get(prediction, "#6b7280")
@@ -161,10 +176,20 @@ def _build_html(
         f'<li style="margin:6px 0;color:#374151;font-size:14px;">{r}</li>'
         for r in (recommendations or [])[:5]
     )
-    attachment_note = (
-        '<p style="color:#6b7280;font-size:13px;margin-top:16px;">'
-        '📎 <em>Your EEG waveform / spectrogram is attached to this email.</em></p>'
-    ) if has_attachment else ''
+    if attachment_names:
+        files_html = "".join(
+            f'<span style="display:inline-block;background:#f3f4f8;border:1px solid #e5e7eb;'
+            f'border-radius:6px;padding:3px 10px;margin:3px 4px 3px 0;font-size:12px;'
+            f'color:#374151;font-family:monospace;">{n}</span>'
+            for n in attachment_names
+        )
+        attachment_note = (
+            f'<p style="color:#6b7280;font-size:13px;margin-top:16px;">'
+            f'📎 <em>The following files are attached to this email:</em></p>'
+            f'<p style="margin:6px 0 0;">{files_html}</p>'
+        )
+    else:
+        attachment_note = ''
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -352,11 +377,17 @@ def send_report_email(
     prediction: dict,
     report_data: dict,
     user: dict,
+    report_pdf_bytes: Optional[bytes] = None,
 ) -> None:
     """
     Build and send the HTML report email.
     Called as a FastAPI background task — all exceptions are caught so
     a mail failure never affects the HTTP response.
+
+    Attachments sent:
+      - EEG waveform PNG  (tabular) or spectrogram PNG (image prediction)
+      - Original uploaded waveform/image (image predictions only)
+      - PDF medical report (when report_pdf_bytes provided)
     """
     if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
         logger.warning("SMTP not configured — skipping report email (set SMTP_HOST, SMTP_USER, SMTP_PASSWORD)")
@@ -370,7 +401,7 @@ def send_report_email(
         return
 
     try:
-        _send(prediction, report_data, full_name, to_email)
+        _send(prediction, report_data, full_name, to_email, report_pdf_bytes)
         logger.info(
             f"Report email sent to {to_email}",
             extra={"user_id": user.get("id"), "prediction_id": prediction.get("id")},
@@ -383,7 +414,13 @@ def send_report_email(
         )
 
 
-def _send(prediction: dict, report_data: dict, full_name: str, to_email: str) -> None:
+def _send(
+    prediction: dict,
+    report_data: dict,
+    full_name: str,
+    to_email: str,
+    report_pdf_bytes: Optional[bytes] = None,
+) -> None:
     dr          = report_data.get("detailed_report", {})
     ai_pred     = report_data.get("ai_prediction", {})
     risk        = dr.get("risk_assessment", {})
@@ -397,63 +434,63 @@ def _send(prediction: dict, report_data: dict, full_name: str, to_email: str) ->
     risk_rat    = risk.get("rationale", "")
     gen_at      = datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
 
-    # ── Build waveform attachment ─────────────────────────────────────────────
-    attachment_bytes: Optional[bytes] = None
-    attachment_name = "waveform.png"
+    # ── Collect image attachments ─────────────────────────────────────────────
+    # List of (bytes, filename) tuples — all non-None entries are attached.
+    image_attachments: list[tuple[bytes, str]] = []
 
     eeg_data = prediction.get("eeg_data")
     if eeg_data and len(eeg_data) >= 2:
-        # Tabular prediction — draw the EEG signal
-        attachment_bytes = _make_waveform_png(eeg_data, pred_result == "Seizure")
-        attachment_name  = "eeg_waveform.png"
+        # Tabular / CSV prediction — generate EEG waveform chart from raw signal
+        waveform_bytes = _make_waveform_png(eeg_data, pred_result == "Seizure")
+        if waveform_bytes:
+            image_attachments.append((waveform_bytes, "eeg_waveform.png"))
     else:
-        # Image prediction — try spectrogram first, then original image from R2
-        for key_field in ("r2_spectrogram_key", "r2_input_key"):
-            img_bytes = _fetch_r2_image(prediction.get(key_field, ""))
-            if img_bytes:
-                # Resize to a reasonable email attachment size (max 800 px wide)
-                try:
-                    pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                    if pil.width > 800:
-                        ratio = 800 / pil.width
-                        pil = pil.resize(
-                            (800, int(pil.height * ratio)), Image.LANCZOS
-                        )
-                    buf = io.BytesIO()
-                    pil.save(buf, format="PNG", optimize=True)
-                    attachment_bytes = buf.getvalue()
-                except Exception:
-                    attachment_bytes = img_bytes
-                attachment_name = "spectrogram.png"
-                break
+        # Image prediction — attach spectrogram AND original uploaded waveform
+        spec_bytes = _fetch_r2_image(prediction.get("r2_spectrogram_key", ""))
+        if spec_bytes:
+            image_attachments.append((_resize_image(spec_bytes), "spectrogram.png"))
 
-    # ── Build MIME message ────────────────────────────────────────────────────
-    msg = MIMEMultipart("related")
-    msg["Subject"] = (
-        f"NeuroScan AI Report — {pred_result} | {gen_at}"
-    )
+        orig_bytes = _fetch_r2_image(prediction.get("r2_input_key", ""))
+        if orig_bytes:
+            image_attachments.append((_resize_image(orig_bytes), "original_waveform.png"))
+
+    # ── Build full attachment name list for the HTML note ─────────────────────
+    attachment_names = [name for _, name in image_attachments]
+    if report_pdf_bytes:
+        attachment_names.append("neuroscan_report.pdf")
+
+    # ── Build MIME message (mixed = body + detached file attachments) ─────────
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = f"NeuroScan AI Report — {pred_result} | {gen_at}"
     msg["From"]    = f"{_FROM_NAME} <{_SMTP_USER}>"
     msg["To"]      = to_email
 
     html_body = _build_html(
-        full_name    = full_name,
-        prediction   = pred_result,
-        confidence   = confidence,
-        model_used   = model_used,
-        filename     = filename,
-        generated_at = gen_at,
-        risk_level   = risk_level,
-        risk_rationale = risk_rat,
-        summary      = summary,
+        full_name       = full_name,
+        prediction      = pred_result,
+        confidence      = confidence,
+        model_used      = model_used,
+        filename        = filename,
+        generated_at    = gen_at,
+        risk_level      = risk_level,
+        risk_rationale  = risk_rat,
+        summary         = summary,
         recommendations = recs,
-        has_attachment = attachment_bytes is not None,
+        attachment_names = attachment_names,
     )
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    if attachment_bytes:
-        img_part = MIMEImage(attachment_bytes, name=attachment_name)
-        img_part.add_header("Content-Disposition", "attachment", filename=attachment_name)
+    # Attach all images
+    for img_bytes, img_name in image_attachments:
+        img_part = MIMEImage(img_bytes, name=img_name)
+        img_part.add_header("Content-Disposition", "attachment", filename=img_name)
         msg.attach(img_part)
+
+    # Attach PDF report
+    if report_pdf_bytes:
+        pdf_part = MIMEApplication(report_pdf_bytes, Name="neuroscan_report.pdf")
+        pdf_part.add_header("Content-Disposition", "attachment", filename="neuroscan_report.pdf")
+        msg.attach(pdf_part)
 
     # ── Send via SMTP ─────────────────────────────────────────────────────────
     if _SMTP_PORT == 465:

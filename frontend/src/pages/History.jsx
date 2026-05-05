@@ -27,7 +27,7 @@ export default function History() {
     <div className="min-h-screen pt-24 pb-12 px-4">
       <div className="max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
             <div>
               <h1 className="text-3xl font-heading font-bold text-white">Analysis History</h1>
               <p className="text-gray-400 mt-1">{predictions.length} past {predictions.length === 1 ? 'analysis' : 'analyses'}</p>
@@ -69,7 +69,7 @@ export default function History() {
                             {p.prediction}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
                           <span className="flex items-center gap-1"><FiFile className="text-xs" /> {p.file_type?.toUpperCase()}</span>
                           <span className="flex items-center gap-1"><FiClock className="text-xs" /> {new Date(p.created_at).toLocaleDateString()}</span>
                           <span>Confidence: {(p.confidence * 100).toFixed(1)}%</span>

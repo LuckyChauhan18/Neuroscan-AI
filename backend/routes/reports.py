@@ -446,7 +446,15 @@ def get_report(
             )
             if claim.modified_count > 0:
                 from services.email_service import send_report_email
-                background_tasks.add_task(send_report_email, prediction, report_data, current_user)
+                # Generate PDF to attach — best-effort, never blocks the response
+                pdf_bytes = None
+                try:
+                    pdf_bytes = _get_or_generate_report_bytes(prediction, "pdf", report_data, db)
+                except Exception as pdf_err:
+                    logger.warning(f"PDF generation for email attachment failed: {pdf_err}")
+                background_tasks.add_task(
+                    send_report_email, prediction, report_data, current_user, pdf_bytes
+                )
         except Exception as e:
             logger.warning(f"Could not claim email_sent for {prediction_id}: {e}")
 

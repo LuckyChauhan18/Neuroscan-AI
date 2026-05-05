@@ -96,7 +96,7 @@ function StrengthBar({ password }) {
         </span>
       </div>
       {/* Rules checklist */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-x-3 gap-y-1">
         {PASSWORD_RULES.map((r) => {
           const ok = r.test(password);
           return (
@@ -252,7 +252,7 @@ export default function Register({ onLogin }) {
             </Field>
 
             {/* DOB + Sex row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-gray-400 mb-1.5">Date of Birth</label>
                 <div className="relative">

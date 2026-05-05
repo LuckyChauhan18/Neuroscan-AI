@@ -473,7 +473,7 @@ export default function Footer() {
           {/* Three matrix cards */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px, 100%), 1fr))',
             gap: '20px',
           }}>
             {MODEL_METRICS.map((model, i) => (

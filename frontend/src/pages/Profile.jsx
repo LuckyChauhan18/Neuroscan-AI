@@ -172,12 +172,12 @@ export default function Profile({ user, onUserUpdate }) {
           <div className="glass-card overflow-hidden">
 
             {/* Avatar header */}
-            <div className="p-8 pb-6 flex items-center gap-6 border-b border-white/5">
+            <div className="p-5 sm:p-8 pb-4 sm:pb-6 flex items-center gap-4 sm:gap-6 border-b border-white/5">
               <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
                 <span className="text-3xl font-heading font-bold text-white">{initials}</span>
               </div>
               <div>
-                <h2 className="text-2xl font-heading font-bold text-white">{user?.full_name || user?.username}</h2>
+                <h2 className="text-xl sm:text-2xl font-heading font-bold text-white">{user?.full_name || user?.username}</h2>
                 <p className="text-gray-400 text-sm">@{user?.username}</p>
                 {user?.sex && (
                   <span className="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-400/10 border border-primary-400/20 text-primary-400">
@@ -195,7 +195,7 @@ export default function Profile({ user, onUserUpdate }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="p-8 space-y-1"
+                  className="p-5 sm:p-8 space-y-1"
                 >
                   <InfoRow icon={FiUser}  label="Full Name"    value={user?.full_name} />
                   <InfoRow icon={FiUsers} label="Father's Name" value={user?.father_name} />
@@ -214,7 +214,7 @@ export default function Profile({ user, onUserUpdate }) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onSubmit={handleSave}
-                  className="p-8 space-y-5"
+                  className="p-5 sm:p-8 space-y-5"
                 >
                   <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Personal Information</p>
 

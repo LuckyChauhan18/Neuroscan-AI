@@ -174,18 +174,18 @@ export default function Upload() {
 
           <AnimatePresence>
             {uploading && (
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-6 glass-card p-6 border border-white/10">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <motion.div animate={{ rotate: progress < 100 ? 360 : 0 }} transition={{ repeat: progress < 100 ? Infinity : 0, duration: 1.4, ease: 'linear' }} className={`w-9 h-9 rounded-xl flex items-center justify-center ${modelInfo.color === 'purple' ? 'bg-purple-500/20' : 'bg-cyan-500/20'}`}>
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-6 glass-card p-4 sm:p-6 border border-white/10">
+                <div className="flex items-center justify-between gap-2 mb-5">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <motion.div animate={{ rotate: progress < 100 ? 360 : 0 }} transition={{ repeat: progress < 100 ? Infinity : 0, duration: 1.4, ease: 'linear' }} className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${modelInfo.color === 'purple' ? 'bg-purple-500/20' : 'bg-cyan-500/20'}`}>
                       <FiCpu className={modelInfo.color === 'purple' ? 'text-purple-400' : 'text-cyan-400'} size={17} />
                     </motion.div>
-                    <div>
-                      <p className={`font-heading font-bold text-sm ${modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300'}`}>{modelInfo.name}</p>
-                      <p className="text-gray-500 text-xs">{modelInfo.tag}</p>
+                    <div className="min-w-0">
+                      <p className={`font-heading font-bold text-xs sm:text-sm truncate ${modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300'}`}>{modelInfo.name}</p>
+                      <p className="text-gray-500 text-xs truncate">{modelInfo.tag}</p>
                     </div>
                   </div>
-                  <motion.span className={`text-2xl font-heading font-bold ${modelInfo.color === 'purple' ? 'text-purple-400' : 'text-cyan-400'}`}>{Math.round(progress)}%</motion.span>
+                  <motion.span className={`text-xl sm:text-2xl font-heading font-bold flex-shrink-0 ${modelInfo.color === 'purple' ? 'text-purple-400' : 'text-cyan-400'}`}>{Math.round(progress)}%</motion.span>
                 </div>
                 <div className="flex items-center justify-between mb-5">
                   {pipeline.map((step, i) => {
@@ -194,13 +194,13 @@ export default function Upload() {
                     const Icon = step.icon;
                     return (
                       <div key={i} className="flex items-center flex-1">
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-500 ${done ? 'bg-green-500/20 border-green-500/40' : active ? (modelInfo.color === 'purple' ? 'bg-purple-500/25 border-purple-400/60' : 'bg-cyan-500/25 border-cyan-400/60') : 'bg-white/5 border-white/10'}`}>
-                            {done ? <FiCheckCircle className="text-green-400" size={16} /> : <Icon size={15} className={active ? (modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300') : 'text-gray-600'} />}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border transition-all duration-500 ${done ? 'bg-green-500/20 border-green-500/40' : active ? (modelInfo.color === 'purple' ? 'bg-purple-500/25 border-purple-400/60' : 'bg-cyan-500/25 border-cyan-400/60') : 'bg-white/5 border-white/10'}`}>
+                            {done ? <FiCheckCircle className="text-green-400" size={14} /> : <Icon size={13} className={active ? (modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300') : 'text-gray-600'} />}
                           </div>
-                          <span className={`text-xs ${done ? 'text-green-400' : active ? (modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300') : 'text-gray-600'}`}>{step.label}</span>
+                          <span className={`text-[10px] sm:text-xs hidden min-[375px]:block ${done ? 'text-green-400' : active ? (modelInfo.color === 'purple' ? 'text-purple-300' : 'text-cyan-300') : 'text-gray-600'}`}>{step.label}</span>
                         </div>
-                        {i < pipeline.length - 1 && <div className="flex-1 mx-1 mb-5"><div className="h-px bg-white/10 relative overflow-hidden rounded-full"><motion.div className={`absolute inset-y-0 left-0 ${modelInfo.color === 'purple' ? 'bg-purple-400' : 'bg-cyan-400'}`} animate={{ width: done ? '100%' : active ? '60%' : '0%' }} transition={{ duration: 0.6 }} /></div></div>}
+                        {i < pipeline.length - 1 && <div className="flex-1 mx-0.5 sm:mx-1 mb-4 sm:mb-5"><div className="h-px bg-white/10 relative overflow-hidden rounded-full"><motion.div className={`absolute inset-y-0 left-0 ${modelInfo.color === 'purple' ? 'bg-purple-400' : 'bg-cyan-400'}`} animate={{ width: done ? '100%' : active ? '60%' : '0%' }} transition={{ duration: 0.6 }} /></div></div>}
                       </div>
                     );
                   })}
