@@ -93,8 +93,12 @@ backend/.venv/
 *.safetensors
 *.joblib
 
+# ── Force-include NeuroScan model files (both under 100 MB GitHub limit) ──────
+!backend/ml_models/Epilepsy.h5
+!backend/ml_models/EpilepsyImage.h5
+
 # Allow the placeholder so the folder is tracked
-backend/ml_models/.gitkeep
+!backend/ml_models/.gitkeep
 
 
 # =============================================================================
