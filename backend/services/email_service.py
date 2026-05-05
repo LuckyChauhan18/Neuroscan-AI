@@ -43,7 +43,13 @@ _SMTP_PORT      = int(os.getenv("SMTP_PORT", "587"))
 _SMTP_USER      = os.getenv("SMTP_USER", "")
 _SMTP_PASSWORD  = os.getenv("SMTP_PASSWORD", "")
 # Support both EMAIL_FROM_NAME and SMTP_FROM_NAME
-_FROM_NAME      = os.getenv("EMAIL_FROM_NAME") or os.getenv("SMTP_FROM_NAME", "NeuroScan AI Team")
+_FROM_NAME         = os.getenv("EMAIL_FROM_NAME") or os.getenv("SMTP_FROM_NAME", "NeuroScan AI Team")
+# Brevo (formerly Sendinblue) — HTTP API, no domain verification needed
+_BREVO_API_KEY     = os.getenv("BREVO_API_KEY", "")
+_BREVO_FROM_EMAIL  = os.getenv("BREVO_FROM_EMAIL", "")
+# Resend — HTTP API, requires verified domain
+_RESEND_API_KEY    = os.getenv("RESEND_API_KEY", "")
+_RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "")
 
 
 # ── Waveform chart (PIL) ──────────────────────────────────────────────────────
@@ -562,19 +568,8 @@ def _send(
         pdf_part.add_header("Content-Disposition", "attachment", filename="neuroscan_report.pdf")
         msg.attach(pdf_part)
 
-    # ── Send via SMTP ─────────────────────────────────────────────────────────
-    if _SMTP_PORT == 465:
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT, context=ctx) as smtp:
-            smtp.login(_SMTP_USER, _SMTP_PASSWORD)
-            smtp.sendmail(_SMTP_USER, to_email, msg.as_bytes())
-    else:
-        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=30) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=ssl.create_default_context())
-            smtp.ehlo()
-            smtp.login(_SMTP_USER, _SMTP_PASSWORD)
-            smtp.sendmail(_SMTP_USER, to_email, msg.as_bytes())
+    # ── Dispatch ──────────────────────────────────────────────────────────────
+    _smtp_send(to_email, msg)
 
 
 # ── OTP email ─────────────────────────────────────────────────────────────────
@@ -671,7 +666,91 @@ def _build_otp_html(full_name: str, otp: str) -> str:
 
 
 def _smtp_send(to_email: str, msg) -> None:
-    """Shared SMTP dispatch — uses SSL on port 465, STARTTLS otherwise."""
+    """Dispatch: Brevo HTTP → Resend HTTP → SMTP fallback.
+
+    Brevo and Resend use HTTP so they work on Railway (SMTP ports are blocked).
+    """
+    if _BREVO_API_KEY:
+        import base64
+        import httpx
+
+        html_body = ""
+        for part in msg.walk():
+            if part.get_content_type() == "text/html":
+                payload = part.get_payload(decode=True)
+                html_body = payload.decode("utf-8", errors="replace") if payload else ""
+                break
+
+        brevo_attachments = []
+        for part in msg.walk():
+            if part.get_content_disposition() == "attachment":
+                data = part.get_payload(decode=True)
+                if data:
+                    brevo_attachments.append({
+                        "name": part.get_filename() or "attachment",
+                        "content": base64.b64encode(data).decode(),
+                    })
+
+        from_addr = _BREVO_FROM_EMAIL or _SMTP_USER or "noreply@neuroscan.ai"
+        payload: dict = {
+            "sender": {"name": _FROM_NAME, "email": from_addr},
+            "to": [{"email": to_email}],
+            "subject": str(msg.get("Subject", "")),
+            "htmlContent": html_body,
+        }
+        if brevo_attachments:
+            payload["attachment"] = brevo_attachments
+
+        resp = httpx.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": _BREVO_API_KEY, "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return
+
+    if _RESEND_API_KEY:
+        import base64
+        import httpx
+
+        html_body = ""
+        for part in msg.walk():
+            if part.get_content_type() == "text/html":
+                payload = part.get_payload(decode=True)
+                html_body = payload.decode("utf-8", errors="replace") if payload else ""
+                break
+
+        resend_attachments = []
+        for part in msg.walk():
+            if part.get_content_disposition() == "attachment":
+                data = part.get_payload(decode=True)
+                if data:
+                    resend_attachments.append({
+                        "filename": part.get_filename() or "attachment",
+                        "content": base64.b64encode(data).decode(),
+                    })
+
+        from_addr = _RESEND_FROM_EMAIL or _SMTP_USER or "noreply@neuroscan.ai"
+        payload: dict = {
+            "from": f"{_FROM_NAME} <{from_addr}>",
+            "to": [to_email],
+            "subject": str(msg.get("Subject", "")),
+            "html": html_body,
+        }
+        if resend_attachments:
+            payload["attachments"] = resend_attachments
+
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {_RESEND_API_KEY}"},
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return
+
+    # SMTP fallback (works outside Railway)
     if _SMTP_PORT == 465:
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT, context=ctx) as smtp:
