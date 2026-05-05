@@ -459,8 +459,8 @@ def send_report_email(
       - Original uploaded waveform/image (image predictions only)
       - PDF medical report (when report_pdf_bytes provided)
     """
-    if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
-        logger.warning("SMTP not configured — skipping report email (set SMTP_HOST, SMTP_USER, SMTP_PASSWORD)")
+    if not _BREVO_API_KEY and not _RESEND_API_KEY and not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
+        logger.warning("Email not configured — skipping report email (set BREVO_API_KEY, RESEND_API_KEY, or SMTP_HOST/USER/PASSWORD)")
         return
 
     to_email  = user.get("email", "")
@@ -688,8 +688,8 @@ def _smtp_send(to_email: str, msg) -> None:
 
 def send_otp_email(to_email: str, full_name: str, otp: str) -> None:
     """Send the 6-digit password-reset OTP."""
-    if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
-        logger.warning("SMTP not configured — cannot send OTP email")
+    if not _BREVO_API_KEY and not _RESEND_API_KEY and not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
+        logger.warning("Email not configured — cannot send OTP email (set BREVO_API_KEY, RESEND_API_KEY, or SMTP_HOST/USER/PASSWORD)")
         return
     try:
         msg = MIMEMultipart("mixed")
@@ -705,8 +705,8 @@ def send_otp_email(to_email: str, full_name: str, otp: str) -> None:
 
 def send_verification_email(to_email: str, full_name: str, otp: str) -> None:
     """Send the 6-digit email-verification OTP sent during registration."""
-    if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
-        logger.warning("SMTP not configured — cannot send verification email")
+    if not _BREVO_API_KEY and not _RESEND_API_KEY and not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
+        logger.warning("Email not configured — cannot send verification email (set BREVO_API_KEY, RESEND_API_KEY, or SMTP_HOST/USER/PASSWORD)")
         return
     year = datetime.now(timezone.utc).year
     html = f"""<!DOCTYPE html>
