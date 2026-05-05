@@ -4,6 +4,20 @@
 
 
 # =============================================================================
+# DEPLOYMENT FILES  (main branch only — not needed locally)
+# =============================================================================
+# Uncomment these lines on the local branch to prevent accidental commits.
+# On main branch these files MUST be committed for Render + Vercel to work.
+#
+# backend/Procfile
+# backend/runtime.txt
+# backend/render.yaml
+# railway.toml
+# frontend/vercel.json
+# frontend/.env.production
+
+
+# =============================================================================
 # SECRETS & ENVIRONMENT
 # =============================================================================
 .env
