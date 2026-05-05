@@ -200,6 +200,49 @@ def _generate_pdf(report: dict) -> bytes:
         elems.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0")))
         elems.append(Spacer(1, 10))
 
+        # ── Patient Information ──────────────────────────────────────────────
+        pi = report.get("patient_info", {})
+        if pi and any(pi.values()):
+            elems.append(Paragraph("Patient Information", h2_style))
+            label_style = ParagraphStyle(
+                "PLabel", parent=body_style,
+                textColor=colors.HexColor("#718096"), fontSize=9
+            )
+            value_style = ParagraphStyle(
+                "PValue", parent=body_style,
+                textColor=colors.HexColor("#1A202C"), fontSize=10
+            )
+            pi_fields = [
+                ("Full Name",    pi.get("full_name", "")),
+                ("Father's Name",pi.get("father_name", "")),
+                ("Age",          str(pi.get("age", ""))),
+                ("Sex",          pi.get("sex", "")),
+                ("Email",        pi.get("email", "")),
+                ("Username",     pi.get("username", "")),
+            ]
+            # Build two-column rows: [Label | Value] pairs
+            pi_rows = [
+                [
+                    Paragraph(f"{label}:", label_style),
+                    Paragraph(value if value else "—", value_style),
+                ]
+                for label, value in pi_fields
+            ]
+            pi_table = Table(pi_rows, colWidths=["30%", "70%"])
+            pi_table.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), colors.HexColor("#F7FAFC")),
+                ("ROWBACKGROUNDS",(0, 0), (-1, -1),
+                 [colors.HexColor("#F7FAFC"), colors.HexColor("#EDF2F7")]),
+                ("TOPPADDING",    (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+                ("BOX",          (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
+                ("INNERGRID",    (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+            ]))
+            elems.append(pi_table)
+            elems.append(Spacer(1, 10))
+
         # AI Prediction box
         pred_color = colors.HexColor("#FED7D7") if pred["result"] == "Seizure" else colors.HexColor("#C6F6D5")
         pred_text_color = colors.HexColor("#C53030") if pred["result"] == "Seizure" else colors.HexColor("#276749")
@@ -477,7 +520,13 @@ def download_report(
         extra={"user_id": current_user["id"]},
     )
     report_data = _build_report_data(prediction, db)
-    data = _get_or_generate_report_bytes(prediction, fmt, report_data, db)
+
+    # PDF / DOCX always regenerated fresh so patient profile updates are reflected.
+    # JSON can still be served from R2 cache.
+    if fmt == "json":
+        data = _get_or_generate_report_bytes(prediction, fmt, report_data, db)
+    else:
+        data = _generate_bytes(fmt, report_data)
 
     return StreamingResponse(
         io.BytesIO(data),
