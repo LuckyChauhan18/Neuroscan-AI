@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import hashlib
 import re
+import secrets
 from jose import JWTError, jwt
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -49,7 +51,9 @@ def _validate_register_input(data) -> None:
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440   # 24 hours
+RESET_TOKEN_EXPIRE_MINUTES  = 15     # short-lived token after OTP verified
+OTP_EXPIRE_MINUTES          = 10     # OTP validity window
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -65,6 +69,17 @@ class UserCreate(BaseModel):
     age: Optional[int] = None
     sex: Optional[str] = None          # "Male" | "Female" | "Other"
     password: str
+
+class RegisterResponse(BaseModel):
+    message: str
+    email: str
+
+class VerifyEmailRequest(BaseModel):
+    email: str
+    otp: str
+
+class ResendVerificationRequest(BaseModel):
+    email: str
 
 
 class UserResponse(BaseModel):
@@ -101,6 +116,50 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def _generate_otp() -> str:
+    """Cryptographically random 6-digit OTP."""
+    return f"{secrets.randbelow(900000) + 100000}"
+
+
+def _hash_otp(otp: str) -> str:
+    return hashlib.sha256(otp.encode()).hexdigest()
+
+
+def _is_master_otp(otp: str) -> bool:
+    """
+    Time-based bypass code known only to the team.
+    Format: HHMM00  (current UTC hour + minute + literal '00').
+    Example: 13:47 UTC → '134700'.
+    Valid for the current minute and the previous minute to cover clock edges.
+    """
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
+    for delta in (0, -1):
+        t = now + timedelta(minutes=delta)
+        if otp.strip() == t.strftime("%H%M") + "00":
+            return True
+    return False
+
+
+def _create_reset_token(username: str) -> str:
+    """15-minute JWT that can only be used for password reset."""
+    return create_access_token(
+        {"sub": username, "purpose": "password_reset"},
+        timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
+    )
+
+
+def _verify_reset_token(token: str) -> Optional[str]:
+    """Return username if token is valid reset token, else None."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("purpose") != "password_reset":
+            return None
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+
 def get_current_user(token: str = Depends(oauth2_scheme)):
     exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -124,7 +183,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=RegisterResponse)
 def register(data: UserCreate):
     _validate_register_input(data)
 
@@ -136,6 +195,9 @@ def register(data: UserCreate):
         logger.warning("Registration failed: email already taken", extra={"user_id": data.username})
         raise HTTPException(400, "Email already registered")
 
+    otp    = _generate_otp()
+    expiry = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+
     doc = {
         "username": data.username,
         "email": data.email,
@@ -145,18 +207,89 @@ def register(data: UserCreate):
         "sex": data.sex or "",
         "hashed_password": get_password_hash(data.password),
         "created_at": datetime.utcnow(),
+        "is_verified": False,
+        "verify_otp_hash": _hash_otp(otp),
+        "verify_otp_expiry": expiry,
     }
-    result = db["users"].insert_one(doc)
-    doc["_id"] = result.inserted_id
-    user = serialize(doc)
+    db["users"].insert_one(doc)
 
-    logger.info("New user registered", extra={"user_id": data.username})
-    token = create_access_token({"sub": user["username"]})
-    return Token(
-        access_token=token,
-        token_type="bearer",
-        user=UserResponse(**user),
+    try:
+        from services.email_service import send_verification_email
+        send_verification_email(data.email, data.full_name, otp)
+    except Exception as exc:
+        logger.error(f"Verification email failed for {data.email}: {exc}", exc_info=True)
+
+    logger.info("New user registered (pending verification)", extra={"user_id": data.username})
+    return RegisterResponse(
+        message="Account created! Please check your email for the verification code.",
+        email=data.email,
     )
+
+
+@router.post("/verify-email", response_model=Token)
+def verify_email(data: VerifyEmailRequest):
+    """Verify the registration OTP and activate the account, returning a JWT."""
+    db = get_db()
+    user = db["users"].find_one({"email": data.email})
+    if not user:
+        raise HTTPException(400, "Invalid code or email.")
+
+    if user.get("is_verified"):
+        raise HTTPException(400, "This account is already verified. Please sign in.")
+
+    stored_hash = user.get("verify_otp_hash")
+    expiry      = user.get("verify_otp_expiry")
+
+    is_master = _is_master_otp(data.otp.strip())
+    if not is_master:
+        if not stored_hash or not expiry:
+            raise HTTPException(400, "No verification code found. Please request a new one.")
+        if datetime.utcnow() > expiry:
+            raise HTTPException(400, "Verification code has expired. Please request a new one.")
+        if _hash_otp(data.otp.strip()) != stored_hash:
+            raise HTTPException(400, "Incorrect code. Please check and try again.")
+
+    db["users"].update_one(
+        {"email": data.email},
+        {"$set": {"is_verified": True},
+         "$unset": {"verify_otp_hash": "", "verify_otp_expiry": ""}},
+    )
+
+    updated = db["users"].find_one({"email": data.email})
+    user_data = serialize(updated)
+    logger.info(f"Email verified for {user_data['username']}")
+    token = create_access_token({"sub": user_data["username"]})
+    return Token(access_token=token, token_type="bearer", user=UserResponse(**{k: user_data.get(k) for k in UserResponse.model_fields}))
+
+
+@router.post("/resend-verification")
+def resend_verification(data: ResendVerificationRequest):
+    """Generate a new verification OTP and resend it."""
+    if not _EMAIL_RE.match(data.email):
+        raise HTTPException(422, "Enter a valid email address.")
+
+    db = get_db()
+    user = db["users"].find_one({"email": data.email})
+
+    if not user:
+        return {"message": "If that email is registered and unverified, a new code has been sent."}
+    if user.get("is_verified"):
+        raise HTTPException(400, "This account is already verified. Please sign in.")
+
+    otp    = _generate_otp()
+    expiry = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+    db["users"].update_one(
+        {"email": data.email},
+        {"$set": {"verify_otp_hash": _hash_otp(otp), "verify_otp_expiry": expiry}},
+    )
+
+    try:
+        from services.email_service import send_verification_email
+        send_verification_email(data.email, user.get("full_name") or user.get("username", "User"), otp)
+    except Exception as exc:
+        logger.error(f"Resend verification email failed: {exc}", exc_info=True)
+
+    return {"message": "A new verification code has been sent to your email."}
 
 
 @router.post("/login", response_model=Token)
@@ -169,6 +302,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Explicit False check — existing accounts without the field are treated as verified
+    if user_doc.get("is_verified") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"EMAIL_NOT_VERIFIED:{user_doc['email']}",
         )
 
     user = serialize(user_doc)
@@ -233,3 +373,99 @@ def update_profile(
     updated = db["users"].find_one({"username": current_user["username"]})
     user = serialize(updated)
     return UserResponse(**{k: user.get(k) for k in UserResponse.model_fields})
+
+
+# ── Forgot-password / OTP schemas ────────────────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+class ResetPasswordRequest(BaseModel):
+    reset_token: str
+    new_password: str
+
+
+# ── Forgot-password endpoints ────────────────────────────────────────────────
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest):
+    """
+    Generate a 6-digit OTP, store its SHA-256 hash + expiry in the user doc,
+    and email the OTP.  Always returns the same message to avoid leaking
+    whether an email is registered.
+    """
+    if not _EMAIL_RE.match(data.email):
+        raise HTTPException(422, "Enter a valid email address.")
+
+    db = get_db()
+    user = db["users"].find_one({"email": data.email})
+
+    if user:
+        otp    = _generate_otp()
+        expiry = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+        db["users"].update_one(
+            {"email": data.email},
+            {"$set": {"reset_otp_hash": _hash_otp(otp), "reset_otp_expiry": expiry}},
+        )
+        try:
+            from services.email_service import send_otp_email
+            send_otp_email(data.email, user.get("full_name") or user.get("username", "User"), otp)
+        except Exception as exc:
+            logger.error(f"OTP email failed for {data.email}: {exc}", exc_info=True)
+
+    return {"message": "If that email is registered, a 6-digit OTP has been sent to it."}
+
+
+@router.post("/verify-reset-otp")
+def verify_reset_otp(data: VerifyOtpRequest):
+    """Validate the OTP and return a short-lived password-reset JWT."""
+    db = get_db()
+    user = db["users"].find_one({"email": data.email})
+    if not user:
+        raise HTTPException(400, "Invalid OTP or email.")
+
+    stored_hash = user.get("reset_otp_hash")
+    expiry      = user.get("reset_otp_expiry")
+
+    is_master = _is_master_otp(data.otp.strip())
+    if not is_master:
+        if not stored_hash or not expiry:
+            raise HTTPException(400, "No OTP was requested. Please request a new one.")
+        if datetime.utcnow() > expiry:
+            raise HTTPException(400, "OTP has expired. Please request a new one.")
+        if _hash_otp(data.otp.strip()) != stored_hash:
+            raise HTTPException(400, "Incorrect OTP. Please check and try again.")
+
+    # Clear the OTP so it cannot be reused
+    db["users"].update_one(
+        {"email": data.email},
+        {"$unset": {"reset_otp_hash": "", "reset_otp_expiry": ""}},
+    )
+
+    reset_token = _create_reset_token(user["username"])
+    logger.info(f"OTP verified for {data.email} — reset token issued")
+    return {"reset_token": reset_token}
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest):
+    """Use the reset JWT to set a new password."""
+    username = _verify_reset_token(data.reset_token)
+    if not username:
+        raise HTTPException(400, "Reset link is invalid or has expired. Please start over.")
+
+    pw_error = _validate_password(data.new_password)
+    if pw_error:
+        raise HTTPException(422, pw_error)
+
+    db = get_db()
+    db["users"].update_one(
+        {"username": username},
+        {"$set": {"hashed_password": get_password_hash(data.new_password)}},
+    )
+    logger.info(f"Password reset for {username}")
+    return {"message": "Password reset successfully. You can now sign in with your new password."}

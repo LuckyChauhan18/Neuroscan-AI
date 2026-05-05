@@ -77,6 +77,13 @@ export const login      = (username, password) => {
 export const getProfile    = ()     => api.get('/auth/profile');
 export const updateProfile = (data) => api.patch('/auth/profile', data);
 
+export const forgotPassword      = (email)                     => api.post('/auth/forgot-password',      { email });
+export const verifyResetOtp      = (email, otp)                => api.post('/auth/verify-reset-otp',     { email, otp });
+export const resetPassword       = (reset_token, new_password) => api.post('/auth/reset-password',       { reset_token, new_password });
+
+export const verifyEmail         = (email, otp)  => api.post('/auth/verify-email',          { email, otp });
+export const resendVerification  = (email)        => api.post('/auth/resend-verification',   { email });
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 export const uploadEEG = (file) => {
   const formData = new FormData();

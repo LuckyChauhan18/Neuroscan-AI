@@ -5,7 +5,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #0a0c10;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%,   #162440 0%,  transparent 70%),
+    radial-gradient(ellipse 60% 40% at 10% 100%,  #111830 0%,  transparent 60%),
+    radial-gradient(ellipse 50% 35% at 90% 80%,   #0e1628 0%,  transparent 55%),
+    #0c101a;
   color: #e2e8f0;
   font-family: 'Inter', sans-serif;
   min-height: 100vh;

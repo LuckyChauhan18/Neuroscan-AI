@@ -2,17 +2,18 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FiLogIn, FiUser, FiLock, FiAlertCircle, FiEye, FiEyeOff,
+  FiLogIn, FiUser, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiMail,
 } from 'react-icons/fi';
 import { login } from '../api';
 
 export default function Login({ onLogin }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
-  const [touched, setTouched]   = useState({ username: false, password: false });
-  const [loading, setLoading]   = useState(false);
+  const [username, setUsername]         = useState('');
+  const [password, setPassword]         = useState('');
+  const [showPass, setShowPass]         = useState(false);
+  const [error, setError]               = useState('');
+  const [unverifiedEmail, setUnverified] = useState('');  // set when backend returns EMAIL_NOT_VERIFIED
+  const [touched, setTouched]           = useState({ username: false, password: false });
+  const [loading, setLoading]           = useState(false);
   const navigate = useNavigate();
 
   const fieldError = {
@@ -36,7 +37,12 @@ export default function Login({ onLogin }) {
       onLogin(res.data.user, res.data.access_token);
       navigate('/upload');
     } catch (err) {
-      setError(err.userMessage || err.response?.data?.detail || 'Login failed. Please try again.');
+      const detail = err.response?.data?.detail || '';
+      if (typeof detail === 'string' && detail.startsWith('EMAIL_NOT_VERIFIED:')) {
+        setUnverified(detail.split(':')[1]);
+      } else {
+        setError(err.userMessage || detail || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,6 +65,30 @@ export default function Login({ onLogin }) {
             <h1 className="text-2xl font-heading font-bold text-white">Welcome Back</h1>
             <p className="text-gray-400 mt-1.5 text-sm">Sign in to continue to NeuroScan AI</p>
           </div>
+
+          {/* Email not verified banner */}
+          <AnimatePresence>
+            {unverifiedEmail && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="flex items-start gap-2.5 bg-yellow-500/10 border border-yellow-500/25 rounded-xl px-4 py-3 mb-6"
+              >
+                <FiMail className="text-yellow-400 flex-shrink-0 mt-0.5" size={15} />
+                <div>
+                  <p className="text-yellow-300 text-sm font-semibold mb-0.5">Email not verified</p>
+                  <p className="text-yellow-400/80 text-xs leading-relaxed">
+                    Please verify <span className="font-medium">{unverifiedEmail}</span> before signing in.
+                  </p>
+                  <Link
+                    to="/register"
+                    className="text-xs text-primary-400 hover:text-primary-300 font-medium mt-1 inline-block"
+                  >
+                    Go to verification →
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Server error */}
           <AnimatePresence>
@@ -106,7 +136,12 @@ export default function Login({ onLogin }) {
 
             {/* Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm text-gray-400">Password</label>
+                <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={15} />
                 <input

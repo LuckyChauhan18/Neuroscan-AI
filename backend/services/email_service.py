@@ -575,3 +575,229 @@ def _send(
             smtp.ehlo()
             smtp.login(_SMTP_USER, _SMTP_PASSWORD)
             smtp.sendmail(_SMTP_USER, to_email, msg.as_bytes())
+
+
+# ── OTP email ─────────────────────────────────────────────────────────────────
+
+def _build_otp_html(full_name: str, otp: str) -> str:
+    year = datetime.now(timezone.utc).year
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroScan AI — Password Reset</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f8;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f8;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#0077b6 0%,#00b4d8 100%);
+                     padding:28px 40px;text-align:center;">
+            <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700;">
+              🧠 NeuroScan AI
+            </h1>
+            <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px;">
+              Password Reset Request
+            </p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px 0;">
+            <p style="font-size:15px;color:#111827;margin:0 0 8px;">
+              Hi <strong>{full_name}</strong>,
+            </p>
+            <p style="font-size:14px;color:#4b5563;margin:0 0 28px;line-height:1.6;">
+              We received a request to reset your NeuroScan AI password.
+              Use the one-time code below to continue. This code is valid for
+              <strong>10 minutes</strong>.
+            </p>
+
+            <!-- OTP box -->
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center">
+                  <div style="display:inline-block;background:#f0f9ff;
+                              border:2px dashed #0077b6;border-radius:14px;
+                              padding:20px 40px;text-align:center;">
+                    <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.12em;color:#6b7280;">
+                      Your OTP code
+                    </p>
+                    <p style="margin:0;font-size:38px;font-weight:800;
+                               letter-spacing:0.18em;color:#0077b6;
+                               font-family:'Courier New',monospace;">
+                      {otp}
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <p style="font-size:13px;color:#6b7280;margin:24px 0 0;line-height:1.65;">
+              ⚠️ If you did not request a password reset, you can safely ignore this email.
+              Your account remains secure and no changes have been made.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Divider + footer -->
+        <tr>
+          <td style="padding:28px 40px 32px;">
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 20px;">
+            <p style="font-size:13px;color:#374151;margin:0 0 4px;">Warm regards,</p>
+            <p style="font-size:14px;font-weight:700;color:#0077b6;margin:0 0 16px;">
+              The NeuroScan AI Team
+            </p>
+            <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.6;">
+              This is an automated email. Please do not reply directly.<br>
+              © {year} NeuroScan AI. All rights reserved.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _smtp_send(to_email: str, msg) -> None:
+    """Shared SMTP dispatch — uses SSL on port 465, STARTTLS otherwise."""
+    if _SMTP_PORT == 465:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT, context=ctx) as smtp:
+            smtp.login(_SMTP_USER, _SMTP_PASSWORD)
+            smtp.sendmail(_SMTP_USER, to_email, msg.as_bytes())
+    else:
+        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=30) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.ehlo()
+            smtp.login(_SMTP_USER, _SMTP_PASSWORD)
+            smtp.sendmail(_SMTP_USER, to_email, msg.as_bytes())
+
+
+def send_otp_email(to_email: str, full_name: str, otp: str) -> None:
+    """Send the 6-digit password-reset OTP."""
+    if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
+        logger.warning("SMTP not configured — cannot send OTP email")
+        return
+    try:
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = "NeuroScan AI — Your Password Reset OTP"
+        msg["From"]    = f"{_FROM_NAME} <{_SMTP_USER}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(_build_otp_html(full_name, otp), "html", "utf-8"))
+        _smtp_send(to_email, msg)
+        logger.info(f"OTP email sent to {to_email}")
+    except Exception as exc:
+        logger.error(f"Failed to send OTP email to {to_email}: {exc}", exc_info=True)
+
+
+def send_verification_email(to_email: str, full_name: str, otp: str) -> None:
+    """Send the 6-digit email-verification OTP sent during registration."""
+    if not all([_SMTP_HOST, _SMTP_USER, _SMTP_PASSWORD]):
+        logger.warning("SMTP not configured — cannot send verification email")
+        return
+    year = datetime.now(timezone.utc).year
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your NeuroScan AI account</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f8;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f8;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#0077b6 0%,#00b4d8 100%);
+                     padding:28px 40px;text-align:center;">
+            <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700;">🧠 NeuroScan AI</h1>
+            <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px;">
+              Confirm your email address
+            </p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px 0;">
+            <p style="font-size:15px;color:#111827;margin:0 0 8px;">
+              Welcome, <strong>{full_name}</strong>! 🎉
+            </p>
+            <p style="font-size:14px;color:#4b5563;margin:0 0 28px;line-height:1.6;">
+              You're almost there! Enter the verification code below to activate your
+              NeuroScan AI account. The code is valid for <strong>10 minutes</strong>.
+            </p>
+
+            <!-- OTP box -->
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center">
+                  <div style="display:inline-block;background:#f0fdf4;
+                              border:2px dashed #22c55e;border-radius:14px;
+                              padding:20px 40px;text-align:center;">
+                    <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.12em;color:#6b7280;">
+                      Verification code
+                    </p>
+                    <p style="margin:0;font-size:38px;font-weight:800;
+                               letter-spacing:0.18em;color:#15803d;
+                               font-family:'Courier New',monospace;">
+                      {otp}
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <p style="font-size:13px;color:#6b7280;margin:24px 0 0;line-height:1.65;">
+              If you didn't create a NeuroScan AI account, you can safely ignore this email.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:28px 40px 32px;">
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 20px;">
+            <p style="font-size:13px;color:#374151;margin:0 0 4px;">Warm regards,</p>
+            <p style="font-size:14px;font-weight:700;color:#0077b6;margin:0 0 16px;">
+              The NeuroScan AI Team
+            </p>
+            <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.6;">
+              This is an automated email. Please do not reply.<br>
+              © {year} NeuroScan AI. All rights reserved.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    try:
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = "NeuroScan AI — Verify your email address"
+        msg["From"]    = f"{_FROM_NAME} <{_SMTP_USER}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        _smtp_send(to_email, msg)
+        logger.info(f"Verification email sent to {to_email}")
+    except Exception as exc:
+        logger.error(f"Failed to send verification email to {to_email}: {exc}", exc_info=True)

@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Upload from './pages/Upload';
 import Results from './pages/Results';
 import History from './pages/History';
@@ -66,8 +67,9 @@ function App() {
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Landing user={user} />} />
-              <Route path="/login"    element={user ? <Navigate to="/upload" /> : <Login onLogin={handleLogin} />} />
-              <Route path="/register" element={user ? <Navigate to="/upload" /> : <Register onLogin={handleLogin} />} />
+              <Route path="/login"            element={user ? <Navigate to="/upload" /> : <Login onLogin={handleLogin} />} />
+              <Route path="/register"         element={user ? <Navigate to="/upload" /> : <Register onLogin={handleLogin} />} />
+              <Route path="/forgot-password"  element={user ? <Navigate to="/upload" /> : <ForgotPassword />} />
               <Route path="/upload"   element={user ? <Upload user={user} /> : <Navigate to="/login" />} />
               <Route path="/results/:id" element={user ? <Results user={user} onModeChange={setEegMode} /> : <Navigate to="/login" />} />
               <Route path="/history"  element={user ? <History user={user} /> : <Navigate to="/login" />} />

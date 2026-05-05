@@ -13,9 +13,9 @@ const BASE_CHANNELS = [
 ];
 
 const COLOR_SCHEMES = {
-  default:  ['#7C3AED', '#0EA5E9', '#8B5CF6', '#06B6D4', '#3B82F6', '#A78BFA', '#9333EA', '#38BDF8', '#6D28D9'],
-  seizure:  ['#EF4444', '#F97316', '#DC2626', '#FB923C', '#F59E0B', '#EF4444', '#B91C1C', '#EA580C', '#991B1B'],
-  normal:   ['#10B981', '#22C55E', '#34D399', '#4ADE80', '#059669', '#6EE7B7', '#047857', '#16A34A', '#065F46'],
+  default: ['#7C3AED','#0EA5E9','#8B5CF6','#06B6D4','#3B82F6','#A78BFA','#9333EA','#38BDF8','#6D28D9'],
+  seizure: ['#EF4444','#F97316','#DC2626','#FB923C','#F59E0B','#EF4444','#B91C1C','#EA580C','#991B1B'],
+  normal:  ['#10B981','#22C55E','#34D399','#4ADE80','#059669','#6EE7B7','#047857','#16A34A','#065F46'],
 };
 
 export default function EEGBackground({ mode = 'default' }) {
@@ -31,20 +31,17 @@ export default function EEGBackground({ mode = 'default' }) {
     const ctx    = canvas.getContext('2d');
     const N      = BASE_CHANNELS.length;
 
-    // ── Per-band phase accumulators (independent random-walk) ─────────────────
     const phases = BASE_CHANNELS.map(ch => ({
       alpha: ch.phase,
-      beta:  ch.phase * 1.7  + 0.5,
-      theta: ch.phase * 0.6  + 1.2,
-      delta: ch.phase * 0.3  + 0.8,
+      beta:  ch.phase * 1.7 + 0.5,
+      theta: ch.phase * 0.6 + 1.2,
+      delta: ch.phase * 0.3 + 0.8,
     }));
 
-    // ── Amplitude envelopes — slow random drift ───────────────────────────────
     const envs       = Array.from({ length: N }, () => 0.8 + Math.random() * 0.4);
     const envTargets = Array.from({ length: N }, () => 0.6 + Math.random() * 0.8);
     const envSpeeds  = Array.from({ length: N }, () => 0.0008 + Math.random() * 0.0012);
 
-    // ── Burst-suppression: channels independently go quiet ────────────────────
     const burstState = Array.from({ length: N }, () => ({
       active:      true,
       timer:       Math.random() * 300,
@@ -53,7 +50,6 @@ export default function EEGBackground({ mode = 'default' }) {
       suppressAmp: 0.05 + Math.random() * 0.08,
     }));
 
-    // ── Spike state: sharp-wave + slow-wave complex (realistic morphology) ────
     const spikeState = Array.from({ length: N }, () => ({
       countdown:   120 + Math.random() * 300,
       firing:      false,
@@ -63,11 +59,9 @@ export default function EEGBackground({ mode = 'default' }) {
       afterjitter: 0,
     }));
 
-    // ── Very-slow background drift (unique per channel) ───────────────────────
     const driftPhase = Array.from({ length: N }, () => Math.random() * Math.PI * 2);
     const driftFreq  = Array.from({ length: N }, () => 0.0003 + Math.random() * 0.0004);
 
-    // ── Correlated slow noise walkers ─────────────────────────────────────────
     const noiseWalkers = Array.from({ length: N }, () => ({
       val:    0,
       target: (Math.random() - 0.5) * 2,
@@ -77,7 +71,7 @@ export default function EEGBackground({ mode = 'default' }) {
     let buffers = null;
     let frame   = 0;
     let animId;
-    const SCROLL_SPEED = 5;
+    const SCROLL_SPEED = 3;
 
     const initBuffers = () => {
       buffers = BASE_CHANNELS.map(() => new Float32Array(canvas.width));
@@ -99,17 +93,16 @@ export default function EEGBackground({ mode = 'default' }) {
       ctx.clearRect(0, 0, W, H);
       frame++;
 
+      // ── Phase 1: update all signal buffers ───────────────────────────────────
       BASE_CHANNELS.forEach((ch, i) => {
         const buf = buffers[i];
 
-        // ── Envelope drift ────────────────────────────────────────────────────
         envs[i] += (envTargets[i] - envs[i]) * envSpeeds[i] * SCROLL_SPEED;
         if (Math.abs(envs[i] - envTargets[i]) < 0.02) {
           envTargets[i] = 0.5 + Math.random() * 1.1;
           envSpeeds[i]  = 0.0006 + Math.random() * 0.0014;
         }
 
-        // ── Burst-suppression toggle ──────────────────────────────────────────
         const bs = burstState[i];
         bs.timer -= SCROLL_SPEED;
         if (bs.timer <= 0) {
@@ -120,7 +113,6 @@ export default function EEGBackground({ mode = 'default' }) {
         }
         const burstFactor = bs.active ? envs[i] : bs.suppressAmp;
 
-        // ── Noise walker ──────────────────────────────────────────────────────
         const nw = noiseWalkers[i];
         nw.val += (nw.target - nw.val) * nw.speed;
         if (Math.abs(nw.val - nw.target) < 0.05) {
@@ -131,70 +123,43 @@ export default function EEGBackground({ mode = 'default' }) {
         buf.copyWithin(0, SCROLL_SPEED);
 
         for (let s = 0; s < SCROLL_SPEED; s++) {
-          // ── Random-walk each band's phase (breaks periodicity) ────────────
           phases[i].alpha += ch.freq1 * (0.90 + Math.random() * 0.20);
           phases[i].beta  += ch.freq2 * (0.85 + Math.random() * 0.30);
           phases[i].theta += ch.freq3 * (0.92 + Math.random() * 0.16);
           phases[i].delta += ch.freq4 * (0.88 + Math.random() * 0.24);
 
-          // ── Very-slow drift baseline ──────────────────────────────────────
-          const drift = Math.sin(
-            driftPhase[i] + (frame * SCROLL_SPEED + s) * driftFreq[i]
-          ) * ch.amp * 0.22;
-
-          // ── Alpha spindle (waxes/wanes — 0.5 s bursts realistic) ─────────
+          const drift    = Math.sin(driftPhase[i] + (frame * SCROLL_SPEED + s) * driftFreq[i]) * ch.amp * 0.22;
           const alphaEnv = 0.55 + 0.45 * Math.sin(frame * 0.003 + i * 0.7);
-          const alpha    = Math.sin(phases[i].alpha) * ch.amp * 0.38 * alphaEnv;
-
-          // ── Beta (fast, low amplitude) ────────────────────────────────────
-          const beta  = Math.sin(phases[i].beta)  * ch.amp * 0.14;
-
-          // ── Theta ─────────────────────────────────────────────────────────
-          const theta = Math.sin(phases[i].theta) * ch.amp * 0.22;
-
-          // ── Delta (slow large waves, like sleep) ──────────────────────────
-          const delta = Math.sin(phases[i].delta) * ch.amp * 0.30;
-
-          // ── EMG-like micro-noise + occasional burst ───────────────────────
+          const alphaSig = Math.sin(phases[i].alpha) * ch.amp * 0.38 * alphaEnv;
+          const beta     = Math.sin(phases[i].beta)  * ch.amp * 0.14;
+          const theta    = Math.sin(phases[i].theta) * ch.amp * 0.22;
+          const delta    = Math.sin(phases[i].delta) * ch.amp * 0.30;
           const emgBurst = Math.random() > 0.88 ? 4 : 1;
-          const emg = (Math.random() - 0.5) * ch.amp * 0.09 +
-                      (Math.random() - 0.5) * ch.amp * 0.05 * emgBurst;
-
-          // ── Correlated slow noise ─────────────────────────────────────────
+          const emg      = (Math.random() - 0.5) * ch.amp * 0.09 + (Math.random() - 0.5) * ch.amp * 0.05 * emgBurst;
           const slowNoise = nw.val * ch.amp * 0.06;
 
-          let sample = (alpha + beta + theta + delta + emg + slowNoise + drift)
-                       * burstFactor;
+          let sample = (alphaSig + beta + theta + delta + emg + slowNoise + drift) * burstFactor;
 
-          // ── Realistic spike: sharp-wave + trailing slow-wave complex ──────
           const sp = spikeState[i];
           sp.countdown--;
-
           if (!sp.firing && sp.countdown <= 0) {
             sp.firing      = true;
             sp.firingFrame = 0;
-            // Mainly negative deflection (like real epileptic spikes)
-            sp.direction  = Math.random() > 0.45 ? -1 : 1;
-            sp.firingDur  = 6 + Math.floor(Math.random() * 8);
+            sp.direction   = Math.random() > 0.45 ? -1 : 1;
+            sp.firingDur   = 6 + Math.floor(Math.random() * 8);
             sp.afterjitter = 0;
-            // Longer inter-spike interval during suppression
-            sp.countdown  = 140 + Math.random() * 280 + (bs.active ? 0 : 200);
+            sp.countdown   = 140 + Math.random() * 280 + (bs.active ? 0 : 200);
           }
-
           if (sp.firing) {
             const f  = sp.firingFrame;
             const fd = sp.firingDur;
-
             if (f < fd) {
-              // Gaussian sharp spike
               const peak = sp.direction * ch.amp * (2.4 + Math.random() * 0.8);
               sample += peak * Math.exp(-Math.pow((f - fd * 0.35) / (fd * 0.25), 2));
             } else if (f < fd * 3.5) {
-              // Slow wave (opposite polarity, broad, decaying)
               const slowPos  = (f - fd) / (fd * 2.5);
               const slowPeak = -sp.direction * ch.amp * (0.7 + Math.random() * 0.3);
               sample += slowPeak * Math.sin(slowPos * Math.PI) * Math.exp(-slowPos * 1.8);
-              // Afterdischarge micro-jitter
               sp.afterjitter = (Math.random() - 0.5) * ch.amp * 0.18;
               sample += sp.afterjitter;
             } else {
@@ -206,32 +171,57 @@ export default function EEGBackground({ mode = 'default' }) {
 
           buf[W - SCROLL_SPEED + s] = sample;
         }
+      });
 
-        const yBase = (H / (N + 1)) * (i + 1);
+      // ── Phase 2: 3D waterfall render — back to front ─────────────────────────
+      // Channel 0 = back (top, small, dim), Channel N-1 = front (bottom, full, bright)
+      for (let i = N - 1; i >= 0; i--) {
+        const buf   = buffers[i];
         const color = colors[i];
+        const t     = i / (N - 1); // 0 = back, 1 = front
 
-        // Wide soft glow
-        ctx.beginPath();
-        ctx.strokeStyle = color;
-        ctx.lineWidth   = 3.5;
-        ctx.globalAlpha = 0.18;
-        for (let x = 0; x < W; x++) {
-          x === 0 ? ctx.moveTo(x, yBase + buf[x]) : ctx.lineTo(x, yBase + buf[x]);
-        }
-        ctx.stroke();
+        // Perspective parameters — back channels are compressed and shifted
+        const horizScale = 0.78 + t * 0.22;       // back: 78% width  → front: 100%
+        const xOffset    = W * 0.11 * (1 - t);    // back: nudged right → front: flush left
+        const yBase      = H * 0.14 + t * H * 0.68; // back: near top → front: near bottom
+        const ampFactor  = 0.45 + t * 0.55;       // back: half-height → front: full-height
+        const lineWidth  = 0.65 + t * 0.70;       // back: thin → front: thicker
+        const lineAlpha  = 0.40 + t * 0.55;       // back: dim → front: bright
+        const fillAlpha  = 0.03 + t * 0.07;       // ribbon fill under wave
 
-        // Bright centre line
+        // Horizon baseline gradient (makes back channels fade into the distance)
+        const grad = ctx.createLinearGradient(xOffset, yBase - 5, xOffset, yBase + 5);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, 'transparent');
+
+        // Ribbon fill — closed area between trace and baseline
         ctx.beginPath();
-        ctx.strokeStyle = color;
-        ctx.lineWidth   = 0.9;
-        ctx.globalAlpha = 0.65;
         for (let x = 0; x < W; x++) {
-          x === 0 ? ctx.moveTo(x, yBase + buf[x]) : ctx.lineTo(x, yBase + buf[x]);
+          const px = xOffset + x * horizScale;
+          const py = yBase + buf[x] * ampFactor;
+          x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
         }
+        ctx.lineTo(xOffset + (W - 1) * horizScale, yBase);
+        ctx.lineTo(xOffset, yBase);
+        ctx.closePath();
+        ctx.fillStyle   = color;
+        ctx.globalAlpha = fillAlpha;
+        ctx.fill();
+
+        // Crisp trace line — single pass, no blur, no glow
+        ctx.beginPath();
+        for (let x = 0; x < W; x++) {
+          const px = xOffset + x * horizScale;
+          const py = yBase + buf[x] * ampFactor;
+          x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = lineWidth;
+        ctx.globalAlpha = lineAlpha;
         ctx.stroke();
 
         ctx.globalAlpha = 1;
-      });
+      }
 
       animId = requestAnimationFrame(draw);
     };
@@ -252,7 +242,7 @@ export default function EEGBackground({ mode = 'default' }) {
         inset: 0,
         zIndex: 0,
         pointerEvents: 'none',
-        opacity: 0.70,
+        opacity: 0.88,
       }}
     />
   );

@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiUserPlus, FiUser, FiLock, FiMail, FiAlertCircle,
-  FiEye, FiEyeOff, FiCheck, FiX, FiCalendar,
+  FiEye, FiEyeOff, FiCheck, FiX, FiCalendar, FiCheckCircle, FiRefreshCw,
 } from 'react-icons/fi';
-import { register } from '../api';
+import { register, verifyEmail, resendVerification } from '../api';
+import { OtpInput, Countdown, OTP_DIGITS, OTP_EXPIRE_SECONDS } from '../components/OtpVerify';
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 
@@ -144,6 +145,7 @@ function Field({ label, icon: Icon, error, children }) {
 export default function Register({ onLogin }) {
   const navigate = useNavigate();
 
+  // ── Registration form state ──
   const [form, setForm] = useState({
     username:         '',
     email:            '',
@@ -161,6 +163,26 @@ export default function Register({ onLogin }) {
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pwFocus, setPwFocus]         = useState(false);
+
+  // ── OTP verification state (step 2) ──
+  const [pendingEmail, setPendingEmail] = useState('');   // set after successful register
+  const [otp, setOtp]                   = useState(' '.repeat(OTP_DIGITS));
+  const [otpLoading, setOtpLoading]     = useState(false);
+  const [otpError, setOtpError]         = useState('');
+  const [countdown, setCountdown]       = useState(OTP_EXPIRE_SECONDS);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!pendingEmail) return;
+    setCountdown(OTP_EXPIRE_SECONDS);
+    timerRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(timerRef.current); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [pendingEmail]);
 
   // Derived age shown next to DOB
   const derivedAge = useMemo(() => ageFromDob(form.dob), [form.dob]);
@@ -182,7 +204,6 @@ export default function Register({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mark all required fields as touched to surface any hidden errors
     setTouch({ full_name: true, username: true, email: true, password: true, confirm_password: true });
     if (hasErrors) return;
 
@@ -198,15 +219,117 @@ export default function Register({ onLogin }) {
         sex:         form.sex || undefined,
         password:    form.password,
       };
-      const res = await register(payload);
-      onLogin(res.data.user, res.data.access_token);
-      navigate('/upload');
+      await register(payload);
+      // Move to OTP verification step
+      setOtp(' '.repeat(OTP_DIGITS));
+      setOtpError('');
+      setPendingEmail(form.email);
     } catch (err) {
       setServerError(err.userMessage || err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = async () => {
+    const otpValue = otp.trimEnd();
+    if (otpValue.length !== OTP_DIGITS || /\s/.test(otpValue)) return;
+    setOtpError('');
+    setOtpLoading(true);
+    try {
+      const res = await verifyEmail(pendingEmail, otpValue);
+      onLogin(res.data.user, res.data.access_token);
+      navigate('/upload');
+    } catch (err) {
+      setOtpError(err.response?.data?.detail || err.userMessage || 'Invalid code. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setOtpError('');
+    setOtp(' '.repeat(OTP_DIGITS));
+    try {
+      await resendVerification(pendingEmail);
+      setCountdown(OTP_EXPIRE_SECONDS);
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) { clearInterval(timerRef.current); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setOtpError('Could not resend code. Please try again.');
+    }
+  };
+
+  // ── OTP verification screen ──
+  if (pendingEmail) {
+    const otpValue   = otp.trimEnd();
+    const otpComplete = otpValue.length === OTP_DIGITS && !/\s/.test(otpValue);
+
+    return (
+      <div className="min-h-screen pt-16 flex items-center justify-center px-4 py-10">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+          <div className="glass-card p-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/25">
+                <FiMail className="text-white text-2xl" />
+              </div>
+              <h1 className="text-2xl font-heading font-bold text-white">Verify Your Email</h1>
+              <p className="text-gray-400 mt-1.5 text-sm">
+                We sent a 6-digit code to <span className="text-primary-400 font-medium">{pendingEmail}</span>
+              </p>
+            </div>
+
+            <AnimatePresence>
+              {otpError && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-red-400 text-sm">
+                  <FiAlertCircle className="flex-shrink-0" /> {otpError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Countdown seconds={countdown} />
+            <OtpInput value={otp} onChange={setOtp} />
+
+            <button
+              onClick={handleVerifyOtp}
+              disabled={!otpComplete || otpLoading || countdown === 0}
+              className="btn-primary w-full flex items-center justify-center gap-2 py-3 mt-5 disabled:opacity-50"
+            >
+              {otpLoading
+                ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : <FiCheckCircle size={15} />}
+              {otpLoading ? 'Verifying…' : 'Verify & Activate Account'}
+            </button>
+
+            <div className="flex items-center justify-between mt-4 text-sm">
+              <button onClick={() => { setPendingEmail(''); setOtpError(''); }}
+                className="text-gray-500 hover:text-gray-300 transition-colors">
+                ← Change email
+              </button>
+              <button
+                onClick={handleResend}
+                disabled={countdown > OTP_EXPIRE_SECONDS - 30}
+                className="text-primary-400 hover:text-primary-300 flex items-center gap-1 transition-colors disabled:opacity-40"
+              >
+                <FiRefreshCw size={13} /> Resend code
+              </button>
+            </div>
+
+            <p className="text-center text-gray-500 mt-6 text-sm">
+              Already verified?{' '}
+              <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium">Sign in</Link>
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-16 flex items-center justify-center px-4 py-10">
